@@ -61,12 +61,10 @@ python -m http.server 8000 --directory C:\Users\rudol\CascadeProjects\WritingApp
 Open http://localhost:8000
 
 ## How to deploy (GitHub Pages)
-1. Create repo `WritingApp` on GitHub.
+1. Create repo `TypingApp` on GitHub (already done: https://github.com/RHauslers/TypingApp).
 2. Push all files to `main`.
 3. Settings → Pages → Source: `main` / root → Save.
-4. Live at `https://<user>.github.io/WritingApp/`.
-(README currently uses `rhauslers` as the username placeholder — update if
-different.)
+4. Live at `https://rhauslers.github.io/TypingApp/`.
 
 ## How to fix common issues
 - **Typing doesn't start:** click the passage once (it needs focus). The app

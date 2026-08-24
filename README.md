@@ -20,7 +20,7 @@ tracker.
 
 1. On your phone, open this link in **Chrome** (Android) or **Safari** (iPhone):
 
-   ### 👉 https://rhauslers.github.io/WritingApp/
+   ### 👉 https://rhauslers.github.io/TypingApp/
 
 2. Tap the browser menu (**⋮** in Chrome, the **Share** icon in Safari) →
    **"Add to Home screen"** → **Add**.
@@ -69,7 +69,7 @@ characters. Net WPM subtracts uncorrected errors.
 - `manifest.json` / `sw.js` / `icon.svg` — PWA install + offline support
 
 ### Deploy to GitHub Pages
-1. Create a new repo named `WritingApp` on GitHub.
+1. Create a new repo named `TypingApp` on GitHub.
 2. Push these files to the `main` branch.
 3. Settings → Pages → Source: `main` / root → Save.
-4. Your app is live at `https://<your-username>.github.io/WritingApp/`.
+4. Your app is live at `https://<your-username>.github.io/TypingApp/`.
