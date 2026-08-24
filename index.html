@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1115" />
+  <title>Writing Practice</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>Writing Practice</h1>
+      <div class="sync-bar">
+        <input type="text" id="sync-username" class="sync-username-input" placeholder="Username" autocomplete="off" />
+        <input type="password" id="sync-token" class="sync-username-input" placeholder="GitHub token" autocomplete="off" />
+        <button id="btn-save-user" class="sync-action-btn">Save</button>
+        <button id="btn-push" class="sync-action-btn push">Push ↑</button>
+        <button id="btn-pull" class="sync-action-btn pull">Pull ↓</button>
+      </div>
+      <p id="sync-status" class="sync-status"></p>
+      <details class="sync-guide">
+        <summary>How to set up sync ▸</summary>
+        <ol>
+          <li>Create a free account at <a href="https://github.com/signup" target="_blank">github.com/signup</a> (skip if you have one)</li>
+          <li>Go to <a href="https://github.com/settings/tokens/new?scopes=gist&description=Writing+practice+sync" target="_blank">github.com → Settings → Token (click here — pre-filled)</a></li>
+          <li>Scroll down, click <strong>Generate token</strong></li>
+          <li>Copy the token (starts with <code>ghp_</code>) — shown only once!</li>
+          <li>Paste it in the token field above, pick a username, hit <strong>Save</strong></li>
+          <li>Use <strong>Push ↑</strong> to upload, <strong>Pull ↓</strong> to download on another device</li>
+        </ol>
+      </details>
+    </header>
+
+    <!-- ======================= TYPE ======================= -->
+    <section id="view-type" class="view active">
+      <div class="source-chips">
+        <button class="chip active" data-source="sample">Sample</button>
+        <button class="chip" data-source="custom">My text</button>
+        <button class="chip" data-source="url">From URL</button>
+      </div>
+
+      <div id="src-sample" class="source-panel">
+        <select id="sample-select" class="select"></select>
+        <button id="btn-new-sample" class="secondary-btn">New random passage</button>
+      </div>
+      <div id="src-custom" class="source-panel hidden">
+        <textarea id="custom-text" class="text-area" rows="5" placeholder="Paste any text here, then tap Load to start typing it..."></textarea>
+        <button id="btn-load-custom" class="primary-btn">Load text</button>
+      </div>
+      <div id="src-url" class="source-panel hidden">
+        <input type="url" id="url-input" class="text-input" placeholder="https://example.com/article" />
+        <button id="btn-fetch-url" class="primary-btn">Fetch text</button>
+        <p id="url-status" class="muted"></p>
+        <textarea id="url-text" class="text-area hidden" rows="5" placeholder="Fetched text will appear here — edit if you like, then Load."></textarea>
+        <button id="btn-load-url" class="primary-btn hidden">Load text</button>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat"><span class="stat-num" id="stat-wpm">0</span><span class="stat-lbl">WPM</span></div>
+        <div class="stat"><span class="stat-num" id="stat-acc">100%</span><span class="stat-lbl">Accuracy</span></div>
+        <div class="stat"><span class="stat-num" id="stat-err">0</span><span class="stat-lbl">Errors</span></div>
+        <div class="stat"><span class="stat-num" id="stat-time">0.0s</span><span class="stat-lbl">Time</span></div>
+      </div>
+
+      <div id="passage" class="passage" tabindex="0" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+      <p id="type-hint" class="muted center">Start typing to begin. Backspace corrects mistakes.</p>
+      <div class="eta-bar" id="eta-bar">
+        <span class="eta-label">Est. time at your WPM:</span>
+        <span class="eta-value" id="eta-value">—</span>
+        <button id="btn-retry" class="secondary-btn compact">Retry</button>
+      </div>
+
+      <div id="result-card" class="card hidden"></div>
+    </section>
+
+    <!-- ===================== CALIBRATE ===================== -->
+    <section id="view-calibrate" class="view">
+      <h2>Calibrate your WPM</h2>
+      <p class="muted">Type the short passage below as fast and accurately as you can. Your result becomes your saved WPM, used to estimate completion times on the Type tab.</p>
+      <div class="stats-bar">
+        <div class="stat"><span class="stat-num" id="cal-wpm">0</span><span class="stat-lbl">WPM</span></div>
+        <div class="stat"><span class="stat-num" id="cal-acc">100%</span><span class="stat-lbl">Accuracy</span></div>
+        <div class="stat"><span class="stat-num" id="cal-time">0.0s</span><span class="stat-lbl">Time</span></div>
+      </div>
+      <div id="cal-passage" class="passage" tabindex="0" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+      <p id="cal-hint" class="muted center">Start typing to begin.</p>
+      <div id="cal-result" class="card hidden"></div>
+      <button id="btn-cal-retry" class="secondary-btn">Try again</button>
+    </section>
+
+    <!-- ======================= STATS ======================= -->
+    <section id="view-stats" class="view">
+      <h2>Your WPM</h2>
+      <div class="wpm-set-card">
+        <input type="number" id="wpm-input" class="text-input" min="1" max="400" placeholder="Your WPM" />
+        <button id="btn-save-wpm" class="primary-btn compact">Save</button>
+      </div>
+      <p id="wpm-source" class="muted"></p>
+
+      <h2 style="margin-top:18px">History <span id="hist-count" class="pill"></span></h2>
+      <div id="history-list" class="list"></div>
+      <button id="btn-clear-history" class="secondary-btn danger">Clear history</button>
+
+      <div class="bmc-wrap">
+        <a href="https://buymeacoffee.com/rhauslers" target="_blank" class="bmc-btn">
+          <img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="" />
+          Buy me a coffee
+        </a>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-view="view-type">Type</button>
+      <button class="tab" data-view="view-calibrate">Calibrate</button>
+      <button class="tab" data-view="view-stats">Stats</button>
+    </nav>
+  </main>
+
+  <script src="text.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
