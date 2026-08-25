@@ -11,6 +11,22 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="wpm-widget" id="wpm-widget">
+    <div class="wpm-widget-row">
+      <input type="number" id="widget-wpm" class="widget-input" min="1" max="400" placeholder="WPM" inputmode="numeric" />
+      <button id="widget-ok" class="widget-ok">OK</button>
+    </div>
+    <div class="wpm-widget-row">
+      <span id="widget-chunk-pos" class="widget-chunk-pos hidden">1/1</span>
+      <select id="widget-chunk-size" class="widget-select" title="Chunk size">
+        <option value="800">Short ~800</option>
+        <option value="1500" selected>Med ~1500</option>
+        <option value="3000">Long ~3000</option>
+        <option value="0">Whole</option>
+      </select>
+    </div>
+    <p id="widget-eta" class="widget-eta hidden"></p>
+  </div>
   <main class="app">
     <header class="header">
       <h1>Writing Practice</h1>
@@ -70,24 +86,7 @@
       <p id="type-hint" class="muted center">Start typing to begin. Backspace corrects mistakes.</p>
       <div class="chunk-bar" id="chunk-bar">
         <button id="btn-prev-chunk" class="secondary-btn compact" disabled>‹ Prev</button>
-        <span class="chunk-info">
-          <span id="chunk-pos">Chunk 1 of 1</span>
-          <span class="chunk-divider">·</span>
-          <span class="eta-label">Est: <span class="eta-value" id="eta-value">—</span></span>
-        </span>
         <button id="btn-next-chunk" class="secondary-btn compact" disabled>Next ›</button>
-      </div>
-      <div class="eta-bar" id="eta-bar">
-        <span class="eta-label">Whole article est: <span class="eta-value" id="eta-total">—</span></span>
-        <span class="chunk-size-wrap">
-          <label for="chunk-size" class="eta-label">Chunk size:</label>
-          <select id="chunk-size" class="select compact">
-            <option value="800">Short (~800)</option>
-            <option value="1500" selected>Medium (~1500)</option>
-            <option value="3000">Long (~3000)</option>
-            <option value="0">Whole text</option>
-          </select>
-        </span>
         <button id="btn-retry" class="secondary-btn compact">Retry</button>
       </div>
 

@@ -57,7 +57,7 @@
   // opts: { onComplete(result), liveUpdate(true) }
   function createSession(passageEl, statMap, opts = {}) {
     let text = "", chars = [], status = [];
-    let pos = 0, errors = 0, startTime = null, finished = false, timer = null;
+    let pos = 0, errors = 0, startTime = null, finished = false, frozen = false, timer = null;
 
     function setStatusClasses(i) {
       const span = chars[i];
@@ -93,6 +93,7 @@
     function uncorrected() { let n = 0; for (const s of status) if (s === "wrong") n++; return n; }
 
     function updateStats() {
+      if (frozen) return; // stats locked after completion — never drift
       const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
       const corr = correctChars();
       const typed = pos;
@@ -105,9 +106,19 @@
       if (statMap.time) $(statMap.time).textContent = fmtTime(elapsed);
     }
 
+    // Scroll the current character into view (only when out of view) so long
+    // passages auto-follow as you type. Uses block:"nearest" to avoid jumping.
+    function scrollCurrentIntoView() {
+      const cur = chars[pos] || chars[pos - 1];
+      if (cur && cur.scrollIntoView) {
+        cur.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    }
+
     function finish() {
       if (finished) return;
       finished = true;
+      frozen = true; // lock the stat display at the final values
       clearInterval(timer);
       timer = null;
       // remove current marker
@@ -119,7 +130,11 @@
       const uncorr = uncorrected();
       const net = Math.max(0, gross - uncorr);
       const acc = typed > 0 ? (corr / typed) * 100 : 100;
-      updateStats();
+      // Write the frozen final values directly (updateStats is now a no-op).
+      if (statMap.wpm) $(statMap.wpm).textContent = Math.round(net);
+      if (statMap.acc) $(statMap.acc).textContent = acc.toFixed(0) + "%";
+      if (statMap.err) $(statMap.err).textContent = String(errors);
+      if (statMap.time) $(statMap.time).textContent = fmtTime(elapsed);
       if (opts.onComplete) opts.onComplete({
         wpm: Math.round(net),
         grossWpm: Math.round(gross),
@@ -156,6 +171,7 @@
           if (pos + 1 < chars.length) setStatusClasses(pos + 1);
         }
         updateStats();
+        scrollCurrentIntoView();
         return;
       }
 
@@ -184,6 +200,7 @@
         setStatusClasses(justTyped);
         if (pos < chars.length) setStatusClasses(pos);
         updateStats();
+        scrollCurrentIntoView();
         if (pos >= text.length) finish();
         return;
       }
@@ -192,7 +209,7 @@
     function load(t) {
       // Normalise: trim trailing whitespace, collapse \r\n -> \n
       text = String(t || "").replace(/\r\n?/g, "\n").replace(/\s+$/g, "");
-      pos = 0; errors = 0; startTime = null; finished = false;
+      pos = 0; errors = 0; startTime = null; finished = false; frozen = false;
       clearInterval(timer); timer = null;
       render();
       updateStats();
@@ -236,12 +253,8 @@
   const calPassageEl = $("cal-passage");
   const resultCard = $("result-card");
   const calResult = $("cal-result");
-  const etaValue = $("eta-value");
-  const etaTotal = $("eta-total");
-  const chunkPosEl = $("chunk-pos");
   const prevChunkBtn = $("btn-prev-chunk");
   const nextChunkBtn = $("btn-next-chunk");
-  const chunkSizeSel = $("chunk-size");
 
   /* ----------------------- main typing session (chunked) ----------------------- */
   let fullText = "";        // the entire loaded article
@@ -281,14 +294,70 @@
   }
 
   function updateChunkUi() {
-    chunkPosEl.textContent = "Chunk " + (chunkIndex + 1) + " of " + chunks.length;
     prevChunkBtn.disabled = chunkIndex <= 0;
     nextChunkBtn.disabled = chunkIndex >= chunks.length - 1;
+    updateWidget();
+  }
+
+  /* ---- top-right WPM widget (pinned): WPM + chunk size + position + ETA ---- */
+  const widgetWpm = $("widget-wpm");
+  const widgetOk = $("widget-ok");
+  const widgetEta = $("widget-eta");
+  const widgetChunkPos = $("widget-chunk-pos");
+  const widgetChunkSize = $("widget-chunk-size");
+
+  function updateWidget() {
     const w = getWpm();
     const curText = chunks[chunkIndex] || "";
-    etaValue.textContent = w > 0 ? fmtEta(computeEta(curText, w)) : "—";
-    etaTotal.textContent = w > 0 ? fmtEta(computeEta(fullText, w)) : "—";
+    // Chunk position — shown only when there's more than one chunk
+    if (chunks.length > 1) {
+      widgetChunkPos.textContent = (chunkIndex + 1) + "/" + chunks.length;
+      widgetChunkPos.classList.remove("hidden");
+    } else {
+      widgetChunkPos.classList.add("hidden");
+    }
+    // ETA line — only when both WPM and a current text are set
+    if (w > 0 && curText.length > 0) {
+      const sec = computeEta(curText, w);
+      const total = computeEta(fullText, w);
+      const more = chunks.length > 1
+        ? " · whole: " + fmtEta(total)
+        : "";
+      widgetEta.innerHTML = "Est: <b>" + fmtEta(sec) + "</b>" + more;
+      widgetEta.classList.remove("hidden");
+    } else {
+      widgetEta.classList.add("hidden");
+    }
   }
+
+  function applyWidgetWpm() {
+    const v = parseInt(widgetWpm.value, 10);
+    if (!v || v < 1 || v > 400) {
+      widgetWpm.value = getWpm() > 0 ? String(getWpm()) : "";
+      return;
+    }
+    setWpm(v);
+    renderWpmBox();
+    updateChunkUi();
+    widgetOk.textContent = "✓";
+    setTimeout(() => (widgetOk.textContent = "OK"), 900);
+  }
+  widgetOk.addEventListener("click", applyWidgetWpm);
+  // Handle Enter to save, and stop the key from reaching the passage engine.
+  widgetWpm.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") { e.preventDefault(); applyWidgetWpm(); }
+  });
+  // Chunk-size change in the widget
+  widgetChunkSize.addEventListener("change", (e) => {
+    e.stopPropagation();
+    chunkSize = parseInt(e.target.value, 10);
+    localStorage.setItem("writing_chunk_size", String(chunkSize));
+    rechunk();
+    loadChunk(0);
+  });
+  // Don't let widget clicks/keys reach the passage
+  widgetChunkSize.addEventListener("keydown", (e) => e.stopPropagation(), true);
 
   function onMainComplete(r) {
     $("type-hint").classList.add("hidden");
@@ -345,15 +414,9 @@
     renderHistory();
   }
 
-  // Chunk navigation + chunk-size selector
+  // Chunk navigation (chunk-size selector lives in the pinned widget)
   prevChunkBtn.addEventListener("click", () => { if (chunkIndex > 0) loadChunk(chunkIndex - 1); });
   nextChunkBtn.addEventListener("click", () => { if (chunkIndex < chunks.length - 1) loadChunk(chunkIndex + 1); });
-  chunkSizeSel.addEventListener("change", (e) => {
-    chunkSize = parseInt(e.target.value, 10);
-    localStorage.setItem("writing_chunk_size", String(chunkSize));
-    rechunk();
-    loadChunk(0);
-  });
 
   /* ----------------------- source chips ----------------------- */
   document.querySelectorAll(".source-chips .chip").forEach((chip) => {
@@ -484,6 +547,7 @@
   function renderWpmBox() {
     const w = getWpm();
     $("wpm-input").value = w > 0 ? String(w) : "";
+    widgetWpm.value = w > 0 ? String(w) : "";
     const d = localStorage.getItem(K_WPMD);
     if (w > 0) {
       const when = d ? new Date(d).toLocaleDateString() : "—";
@@ -596,7 +660,7 @@
   /* ----------------------- init ----------------------- */
   const savedSize = parseInt(localStorage.getItem("writing_chunk_size") || "1500", 10);
   chunkSize = isNaN(savedSize) ? 1500 : savedSize;
-  chunkSizeSel.value = String(chunkSize);
+  widgetChunkSize.value = String(chunkSize);
   fillSampleSelect();
   loadRandomSample();
   loadCalibrate();
