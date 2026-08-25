@@ -237,31 +237,57 @@
   const resultCard = $("result-card");
   const calResult = $("cal-result");
   const etaValue = $("eta-value");
+  const etaTotal = $("eta-total");
+  const chunkPosEl = $("chunk-pos");
+  const prevChunkBtn = $("btn-prev-chunk");
+  const nextChunkBtn = $("btn-next-chunk");
+  const chunkSizeSel = $("chunk-size");
 
-  /* ----------------------- main typing session ----------------------- */
-  let currentText = "";
+  /* ----------------------- main typing session (chunked) ----------------------- */
+  let fullText = "";        // the entire loaded article
   let currentSource = "sample";
+  let chunks = [];          // array of chunk strings
+  let chunkIndex = 0;
+  let chunkSize = 1500;     // 0 => whole text as one chunk
+
   let mainSession = createSession(passageEl, {
     wpm: "stat-wpm", acc: "stat-acc", err: "stat-err", time: "stat-time"
   }, {
     onComplete: (r) => onMainComplete(r)
   });
 
-  function loadPassage(text, source) {
-    currentText = text;
+  function rechunk() {
+    chunks = chunkSize > 0 ? TextSource.chunkText(fullText, chunkSize) : [fullText];
+    if (chunks.length === 0) chunks = [fullText];
+  }
+
+  // Load a whole article (sample / custom / url) and start at chunk 0.
+  function loadArticle(text, source) {
+    fullText = String(text || "");
     currentSource = source;
-    mainSession.load(text);
+    rechunk();
+    chunkIndex = 0;
+    loadChunk(chunkIndex);
+  }
+
+  function loadChunk(i) {
+    chunkIndex = Math.max(0, Math.min(chunks.length - 1, i));
+    mainSession.load(chunks[chunkIndex]);
     resultCard.classList.add("hidden");
     resultCard.innerHTML = "";
     $("type-hint").classList.remove("hidden");
-    updateEta();
-    // Focus on next tick so the render is visible first
+    updateChunkUi();
     setTimeout(() => passageEl.focus(), 0);
   }
 
-  function updateEta() {
+  function updateChunkUi() {
+    chunkPosEl.textContent = "Chunk " + (chunkIndex + 1) + " of " + chunks.length;
+    prevChunkBtn.disabled = chunkIndex <= 0;
+    nextChunkBtn.disabled = chunkIndex >= chunks.length - 1;
     const w = getWpm();
-    etaValue.textContent = w > 0 ? fmtEta(computeEta(currentText, w)) : "— (set WPM in Stats)";
+    const curText = chunks[chunkIndex] || "";
+    etaValue.textContent = w > 0 ? fmtEta(computeEta(curText, w)) : "—";
+    etaTotal.textContent = w > 0 ? fmtEta(computeEta(fullText, w)) : "—";
   }
 
   function onMainComplete(r) {
@@ -277,9 +303,22 @@
     addSession(session);
     const prevWpm = getWpm();
     const newBest = r.wpm > prevWpm;
+    const isLast = chunkIndex >= chunks.length - 1;
+    const hasNext = chunks.length > 1 && !isLast;
+
+    const title = isLast
+      ? (chunks.length > 1 ? "Article complete!" : "Done!")
+      : "Chunk " + (chunkIndex + 1) + " of " + chunks.length + " done!";
+    const nextBtn = hasNext
+      ? `<button id="btn-result-next" class="primary-btn">Next chunk ›</button>`
+      : "";
+    const saveBtn = `<button id="btn-save-wpm-result" class="secondary-btn">
+        ${newBest ? "Save as my WPM (new best!)" : "Save as my WPM"}
+      </button>`;
+
     resultCard.classList.remove("hidden");
     resultCard.innerHTML = `
-      <h3>Done!</h3>
+      <h3>${title}</h3>
       <div class="result-grid">
         <div class="result-kv"><div class="v">${r.wpm}</div><div class="k">Net WPM</div></div>
         <div class="result-kv"><div class="v">${r.accuracy.toFixed(0)}%</div><div class="k">Accuracy</div></div>
@@ -287,27 +326,34 @@
         <div class="result-kv"><div class="v">${r.uncorrected}</div><div class="k">Uncorrected</div></div>
       </div>
       <p class="muted">${r.correctChars} of ${r.length} characters correct. Gross WPM: ${r.grossWpm}.</p>
-      <button id="btn-save-wpm-result" class="primary-btn">
-        ${newBest ? "Save as my WPM (new best!)" : "Save as my WPM"}
-      </button>
-      <button id="btn-result-retry" class="secondary-btn">Type this again</button>
-      <button id="btn-result-new" class="secondary-btn">New passage</button>
+      ${nextBtn}
+      <button id="btn-result-retry" class="secondary-btn">Retry this chunk</button>
+      ${saveBtn}
     `;
+    if (hasNext) {
+      $("btn-result-next").addEventListener("click", () => loadChunk(chunkIndex + 1));
+    }
     $("btn-save-wpm-result").addEventListener("click", () => {
       setWpm(r.wpm);
       renderWpmBox();
-      updateEta();
+      updateChunkUi();
       renderHistory();
       $("btn-save-wpm-result").textContent = "Saved ✓";
       $("btn-save-wpm-result").disabled = true;
     });
-    $("btn-result-retry").addEventListener("click", () => loadPassage(currentText, currentSource));
-    $("btn-result-new").addEventListener("click", () => {
-      if (currentSource === "sample") loadRandomSample();
-      else loadPassage(currentText, currentSource);
-    });
+    $("btn-result-retry").addEventListener("click", () => loadChunk(chunkIndex));
     renderHistory();
   }
+
+  // Chunk navigation + chunk-size selector
+  prevChunkBtn.addEventListener("click", () => { if (chunkIndex > 0) loadChunk(chunkIndex - 1); });
+  nextChunkBtn.addEventListener("click", () => { if (chunkIndex < chunks.length - 1) loadChunk(chunkIndex + 1); });
+  chunkSizeSel.addEventListener("change", (e) => {
+    chunkSize = parseInt(e.target.value, 10);
+    localStorage.setItem("writing_chunk_size", String(chunkSize));
+    rechunk();
+    loadChunk(0);
+  });
 
   /* ----------------------- source chips ----------------------- */
   document.querySelectorAll(".source-chips .chip").forEach((chip) => {
@@ -339,12 +385,12 @@
     const idx = Math.floor(Math.random() * TextSource.sampleCount());
     localStorage.setItem(K_LAST_SAMPLE, String(idx));
     $("sample-select").value = String(idx);
-    loadPassage(TextSource.getSampleByIndex(idx), "sample");
+    loadArticle(TextSource.getSampleByIndex(idx), "sample");
   }
   $("sample-select").addEventListener("change", (e) => {
     const idx = parseInt(e.target.value, 10);
     localStorage.setItem(K_LAST_SAMPLE, String(idx));
-    loadPassage(TextSource.getSampleByIndex(idx), "sample");
+    loadArticle(TextSource.getSampleByIndex(idx), "sample");
   });
   $("btn-new-sample").addEventListener("click", loadRandomSample);
 
@@ -352,7 +398,7 @@
   $("btn-load-custom").addEventListener("click", () => {
     const t = $("custom-text").value.trim();
     if (t.length < 5) { alert("Paste a bit more text to type (at least a few words)."); return; }
-    loadPassage(t, "custom");
+    loadArticle(t, "custom");
   });
 
   /* ----------------------- url source ----------------------- */
@@ -381,7 +427,7 @@
   $("btn-load-url").addEventListener("click", () => {
     const t = $("url-text").value.trim();
     if (t.length < 5) { alert("No text to load."); return; }
-    loadPassage(t, "url");
+    loadArticle(t, "url");
   });
 
   /* ----------------------- calibrate ----------------------- */
@@ -424,7 +470,7 @@
     $("btn-cal-save").addEventListener("click", () => {
       setWpm(r.wpm);
       renderWpmBox();
-      updateEta();
+      updateChunkUi();
       renderHistory();
       $("btn-cal-save").textContent = "Saved ✓";
       $("btn-cal-save").disabled = true;
@@ -451,7 +497,7 @@
     if (!v || v < 1 || v > 400) { alert("Enter a WPM between 1 and 400."); return; }
     setWpm(v);
     renderWpmBox();
-    updateEta();
+    updateChunkUi();
     $("btn-save-wpm").textContent = "Saved ✓";
     setTimeout(() => ($("btn-save-wpm").textContent = "Save"), 1200);
   });
@@ -536,7 +582,7 @@
       renderSync();
       renderWpmBox();
       renderHistory();
-      updateEta();
+      updateChunkUi();
     } catch (e) { $("sync-status").textContent = "Pull failed: " + e.message; }
   });
 
@@ -548,13 +594,16 @@
   }
 
   /* ----------------------- init ----------------------- */
+  const savedSize = parseInt(localStorage.getItem("writing_chunk_size") || "1500", 10);
+  chunkSize = isNaN(savedSize) ? 1500 : savedSize;
+  chunkSizeSel.value = String(chunkSize);
   fillSampleSelect();
   loadRandomSample();
   loadCalibrate();
   renderWpmBox();
   renderHistory();
   renderSync();
-  updateEta();
+  updateChunkUi();
   // Auto-focus the main passage once on load
   setTimeout(() => passageEl.focus(), 100);
 })();

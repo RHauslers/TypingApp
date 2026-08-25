@@ -68,9 +68,26 @@
 
       <div id="passage" class="passage" tabindex="0" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
       <p id="type-hint" class="muted center">Start typing to begin. Backspace corrects mistakes.</p>
+      <div class="chunk-bar" id="chunk-bar">
+        <button id="btn-prev-chunk" class="secondary-btn compact" disabled>‹ Prev</button>
+        <span class="chunk-info">
+          <span id="chunk-pos">Chunk 1 of 1</span>
+          <span class="chunk-divider">·</span>
+          <span class="eta-label">Est: <span class="eta-value" id="eta-value">—</span></span>
+        </span>
+        <button id="btn-next-chunk" class="secondary-btn compact" disabled>Next ›</button>
+      </div>
       <div class="eta-bar" id="eta-bar">
-        <span class="eta-label">Est. time at your WPM:</span>
-        <span class="eta-value" id="eta-value">—</span>
+        <span class="eta-label">Whole article est: <span class="eta-value" id="eta-total">—</span></span>
+        <span class="chunk-size-wrap">
+          <label for="chunk-size" class="eta-label">Chunk size:</label>
+          <select id="chunk-size" class="select compact">
+            <option value="800">Short (~800)</option>
+            <option value="1500" selected>Medium (~1500)</option>
+            <option value="3000">Long (~3000)</option>
+            <option value="0">Whole text</option>
+          </select>
+        </span>
         <button id="btn-retry" class="secondary-btn compact">Retry</button>
       </div>
 
