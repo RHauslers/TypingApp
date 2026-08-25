@@ -92,6 +92,12 @@
     function correctChars() { let n = 0; for (const s of status) if (s === "correct") n++; return n; }
     function uncorrected() { let n = 0; for (const s of status) if (s === "wrong") n++; return n; }
 
+    // Safely set text on an element by id (no-op if the element doesn't exist).
+    function setText(id, val) {
+      const el = id && $(id);
+      if (el) el.textContent = val;
+    }
+
     function updateStats() {
       if (frozen) return; // stats locked after completion — never drift
       const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
@@ -100,10 +106,10 @@
       const gross = elapsed > 0 ? (typed / 5) / (elapsed / 60) : 0;
       const net = Math.max(0, gross - uncorrected());
       const acc = typed > 0 ? (corr / typed) * 100 : 100;
-      if (statMap.wpm) $(statMap.wpm).textContent = Math.round(net);
-      if (statMap.acc) $(statMap.acc).textContent = acc.toFixed(0) + "%";
-      if (statMap.err) $(statMap.err).textContent = String(errors);
-      if (statMap.time) $(statMap.time).textContent = fmtTime(elapsed);
+      setText(statMap.wpm, Math.round(net));
+      setText(statMap.acc, acc.toFixed(0) + "%");
+      setText(statMap.err, String(errors));
+      setText(statMap.time, fmtTime(elapsed));
     }
 
     // Scroll the current character into view (only when out of view) so long
@@ -131,10 +137,10 @@
       const net = Math.max(0, gross - uncorr);
       const acc = typed > 0 ? (corr / typed) * 100 : 100;
       // Write the frozen final values directly (updateStats is now a no-op).
-      if (statMap.wpm) $(statMap.wpm).textContent = Math.round(net);
-      if (statMap.acc) $(statMap.acc).textContent = acc.toFixed(0) + "%";
-      if (statMap.err) $(statMap.err).textContent = String(errors);
-      if (statMap.time) $(statMap.time).textContent = fmtTime(elapsed);
+      setText(statMap.wpm, Math.round(net));
+      setText(statMap.acc, acc.toFixed(0) + "%");
+      setText(statMap.err, String(errors));
+      setText(statMap.time, fmtTime(elapsed));
       if (opts.onComplete) opts.onComplete({
         wpm: Math.round(net),
         grossWpm: Math.round(gross),

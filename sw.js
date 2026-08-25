@@ -1,4 +1,4 @@
-const CACHE = "writing-practice-v3";
+const CACHE = "writing-practice-v4";
 const ASSETS = [
   ".",
   "index.html",
